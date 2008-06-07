@@ -1,4 +1,4 @@
-#summary Some screen shots showing off some of the ttk widgets
+#summary Some screen shots showing off some of the ttk widgets or mini apps
 #labels Featured
 
 _samples/ttkcalendar.py_
