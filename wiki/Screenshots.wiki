@@ -1,4 +1,14 @@
 #summary Some screen shots showing off some of the ttk widgets
 #labels Featured
 
-None yet
+_samples/ttkcalendar.py_
+http://python-ttk.googlecode.com/svn-history/r4/trunk/screenshots/simple_calendar_clamtheme.png
+
+_samples/roundframe.py_
+http://python-ttk.googlecode.com/svn/trunk/screenshots/roundframe.png
+
+_samples/treeview_multicolumn.py_
+http://python-ttk.googlecode.com/svn/trunk/screenshots/multicolumn_treeview_plastiktheme.png
+
+_samples/mac_searchentry.py_
+http://python-ttk.googlecode.com/svn/trunk/screenshots/mac_searchentry.png
