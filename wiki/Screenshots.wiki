@@ -3,7 +3,7 @@
 
 _samples/ttkcalendar.py_
 
-http://python-ttk.googlecode.com/svn-history/r4/trunk/screenshots/simple_calendar_clamtheme.png
+http://python-ttk.googlecode.com/svn-history/r4/trunk/screenshots/calendar.png
 
 _samples/roundframe.py_
 
