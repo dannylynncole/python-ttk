@@ -3,7 +3,7 @@
 
 _samples/theming.pg_
 
-http://python-ttk.googlecode.com/svn/trunk/screenshots/ttk_theming.png
+http://python-ttk.googlecode.com/svn/trunk/screenshots/ttk_theming2.png
 
 _samples/ttkcalendar.py_
 
