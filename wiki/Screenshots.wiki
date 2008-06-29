@@ -1,7 +1,7 @@
 #summary Some screen shots showing off some of the ttk widgets or mini apps
 #labels Featured
 
-_samples/theming.pg_
+_samples/theming.py_
 
 http://python-ttk.googlecode.com/svn/trunk/screenshots/ttk_theming2.png
 
