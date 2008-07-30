@@ -4,19 +4,16 @@ Sample application for playing with Ttk theming.
 -- Guilherme Polo, 2008.
 """
 
-# XXX ToDo List:
-#   * Save/Load style changes, maybe.
-#   * Add a way to edit elements.
-#   * Add pre-defined elements for the current theme:
-#       - Just after editing elements feature is added.
-
 import os
 import ttk
 import pprint
+import inspect
 import Tkinter
+import cPickle
 import cStringIO
+import ConfigParser
 from tkSimpleDialog import Dialog
-from tkFileDialog import askopenfilename
+from tkFileDialog import askopenfilename, asksaveasfilename
 from tkMessageBox import showwarning, showerror
 
 IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img")
@@ -132,6 +129,57 @@ def widget_expand(widget, master, **kw):
         fill = 'both'
     w.pack_configure(expand=True, fill=fill)
     return w
+
+
+class ThemeFile(ConfigParser.ConfigParser):
+    def __init__(self, fileobj, style=None, readfrom=False):
+        ConfigParser.ConfigParser.__init__(self)
+        self._fobj = fileobj
+        self._style = style
+        if readfrom:
+            self.readfp(fileobj)
+
+    def optionxform(self, optionstr):
+        """This method overrides the ConfigParser.RawConfigParser's one."""
+        caller = inspect.stack()[1] # caller's record
+        caller_func_name = caller[3]
+        if caller_func_name in ('set', '_read'):
+            # don't change option's case for these functions
+            return optionstr
+        return optionstr.lower()
+
+    def load_configure(self, items):
+        self._style_load(items, self._style.configure)
+
+    def load_map(self, items):
+        self._style_load(items, self._style.map)
+
+    def load_layout(self, items):
+        self._style_load(items, self._style.layout, False)
+
+    def _style_load(self, items, method, dict_unpack=True):
+        if not items:
+            return
+
+        for layout, data in items:
+            # XXX Warning: pickle usage!
+            data = cPickle.loads(data)
+            layout = "Custom.%s" % layout
+            if dict_unpack:
+                method(layout, **data)
+            else:
+                method(layout, data)
+
+    def add_theme_sections(self, theme):
+        sections = ('configure', 'map', 'layout')
+        for section in sections:
+            self.add_section('%s-%s' % (theme, section))
+
+    def save(self):
+        self.write(self._fobj)
+
+    def close(self):
+        self._fobj.close()
 
 
 class AutoScroll(object):
@@ -455,6 +503,7 @@ class MainWindow(object):
         self.master.minsize(width, height)
         self.master.title(title)
 
+        self._filename = None # no custom theme loaded
         self._style = ttk.Style(self.master)
         self._current_widget = {'layout': None, 'widget': None}
         self._images = {} # images created by the user
@@ -713,17 +762,125 @@ class MainWindow(object):
         for child in children:
             treeview.insert(parent, 'end', text=child)
 
+    def _open_theme(self, event=None):
+        """Open and load a theme saved in a file."""
+        def get_section_items(themeobj, secname):
+            if not themeobj.has_section(secname):
+                return None
+            return themeobj.items(secname)
+
+        fname = askopenfilename(parent=self.master)
+        if not fname:
+            return
+
+        try:
+            themeobj = ThemeFile(open(fname, 'rb'), self._style, readfrom=True)
+        except IOError, err:
+            showerror("Theme file couldn't be loaded",
+                "Couldn't open requested file.\n\n"
+                "Error: %s" % err, parent=self.master)
+            return
+        except ConfigParser.Error, err:
+            showerror("Theme file couldn't be loaded", err, parent=self.master)
+            return
+
+        current_theme = self._style.theme_use()
+
+        for theme in self._style.theme_names():
+            self._style.theme_use(theme)
+            themeobj.load_configure(get_section_items(themeobj,
+                '%s-configure' % theme))
+            themeobj.load_map(get_section_items(themeobj, '%s-map' % theme))
+            themeobj.load_layout(get_section_items(themeobj,
+                '%s-layout' % theme))
+
+        # restore theme
+        self._style.theme_use(current_theme)
+        # refresh widget preview
+        treeview = self._tv_widgets
+        self._change_preview(treeview, invalid=True)
+        # update file in use
+        self._filename = fname
+
+        themeobj.close()
+
+    def _save_theme(self, event=None):
+        """Save current changes to the current file."""
+        if self._filename is None:
+            self._filename = self._save_theme_as(event)
+        else:
+            self.__save_changes(self._filename)
+
+    def _save_theme_as(self, event=None):
+        """Save current changes to a file."""
+        fname = asksaveasfilename()
+        if not fname:
+            return
+        self.__save_changes(fname)
+        return fname
+
+    def __save_changes(self, fname):
+        try:
+            themeobj = ThemeFile(open(fname, 'wb'))
+        except IOError, err:
+            showerror("Error on file creation",
+                "Theme won't be saved.\n\nError: %s" % err, parent=self.master)
+            return
+
+        current_theme = self._style.theme_use()
+
+        # traverse through all themes looking for things that changed
+        for theme in self._style.theme_names():
+            self._style.theme_use(theme)
+            themeobj.add_theme_sections(theme)
+
+            for parent in self._tv_widgets.get_children(''):
+                for child in self._tv_widgets.get_children(parent):
+                    layout = self._tv_widgets.item(child)['text']
+                    custom_layout = "Custom.%s" % layout
+                    data = {
+                        'configure': (
+                            self._style.configure(custom_layout),
+                            self._style.configure(layout)),
+                        'map': (
+                            self._style.map(custom_layout),
+                            self._style.map(layout)),
+                        'layout': (
+                            self._style.layout(custom_layout),
+                            self._style.layout(layout))
+                    }
+
+                    # save custom data
+                    for themeopt, (custom, orig) in data.iteritems():
+                        if custom and custom != orig:
+                            themeobj.set('%s-%s' % (theme, themeopt),
+                                layout, cPickle.dumps(custom, 2))
+
+        themeobj.save()
+        themeobj.close()
+        # restore previous theme in use
+        self._style.theme_use(current_theme)
+
     def __create_menu(self):
         menu = Tkinter.Menu()
         self.master['menu'] = menu
 
         file_menu = Tkinter.Menu(menu, tearoff=False)
+        file_menu.add_command(label="Open", underline=0, accelerator="Ctrl+o",
+            command=self._open_theme)
+        file_menu.add_command(label="Save", underline=0, accelerator="Ctrl+s",
+            command=self._save_theme)
+        file_menu.add_command(label="Save as..", accelerator="Ctrl+Shift+s",
+            command=self._save_theme_as)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", underline=1, accelerator="Ctrl-X",
+        file_menu.add_command(label="Quit", underline=1, accelerator="Ctrl+q",
             command=self.master.destroy)
 
         menu.add_cascade(menu=file_menu, label="File", underline=0)
-        self.master.bind('<Control-x>', 'exit')
+        self.master.bind('<Control-o>', self._open_theme)
+        self.master.bind('<Control-s>', self._save_theme)
+        self.master.bind('<Control-Shift-S>', self._save_theme_as)
+        self.master.bind('<Control-q>', 'exit')
 
     def __setup_widgets(self):
         """Create and layout widgets."""
