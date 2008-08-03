@@ -1,7 +1,7 @@
 #summary Some screen shots showing off some of the ttk widgets or mini apps
 #labels Featured
 
-IDLE (custom repo) running under Linux with clam theme
+_IDLE (custom repo) running under Linux with clam theme_
 
 http://python-ttk.googlecode.com/svn/trunk/screenshots/idle_ttk_and_tabs.png
 
