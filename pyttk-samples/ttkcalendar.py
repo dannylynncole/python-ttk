@@ -15,7 +15,7 @@ except ImportError: # py3k
 import ttk
 
 class Calendar(ttk.Frame):
-    # XXX ToDo: critical: __getitem__, cget and configure
+    # XXX ToDo: critical: cget and configure
 
     datetime = calendar.datetime.datetime
     timedelta = calendar.datetime.timedelta
@@ -60,6 +60,27 @@ class Calendar(ttk.Frame):
 
         # set the minimal size for the widget
         self._calendar.bind('<Map>', self.__minsize)
+
+    def __setitem__(self, item, value):
+        if item in ('year', 'month'):
+            raise AttributeError("attribute '%s' is not writeable" % item)
+        elif item == 'selectbackground':
+            self._canvas['background'] = value
+        elif item == 'selectforeground':
+            self._canvas.itemconfigure(self._canvas.text, item=value)
+        else:
+            ttk.Frame.__setitem__(self, item, value)
+
+    def __getitem__(self, item):
+        if item in ('year', 'month'):
+            return getattr(self._date, item)
+        elif item == 'selectbackground':
+            return self._canvas['background']
+        elif item == 'selectforeground':
+            return self._canvas.itemcget(self._canvas.text, 'fill')
+        else:
+            r = ttk.tclobjs_to_py({item: ttk.Frame.__getitem__(self, item)})
+            return r[item]
 
     def __setup_styles(self):
         # custom ttk styles
@@ -164,6 +185,7 @@ class Calendar(ttk.Frame):
             return
 
         # update and then show selection
+        text = '%02d' % text
         self._selection = (text, item, column)
         self._show_selection(text, bbox)
 
